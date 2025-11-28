@@ -8,12 +8,18 @@ import com.example.moominframework.MoominComponent;
 @MoominComponent
 public class UserService {
 
+    private final UserRepository userRepository;
+    private final OrderRepository orderRepository;
+    private final NotificationRepository notificationRepository;
+
     public UserService (
             UserRepository userRepository,
             OrderRepository orderRepository,
             NotificationRepository notificationRepository
     ) {
-        // 의존성 주입 필요
+        this.userRepository = userRepository;
+        this.orderRepository = orderRepository;
+        this.notificationRepository = notificationRepository;
     }
 
     public void run() {

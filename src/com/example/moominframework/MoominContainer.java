@@ -2,6 +2,8 @@ package com.example.moominframework;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.*;
@@ -95,6 +97,11 @@ public class MoominContainer {
                 // BeanDefinition 생성
                 BeanDefinition bd = new BeanDefinition(clazz);
 
+                // 같은 이름의 beanName이 있을 경우 예외 처리
+                if(beanDefinitionRegistry.containsKey(beanName)) {
+                    throw new RuntimeException("중복 Bean 등록이 감지되었습니다.");
+                }
+
                 // 저장
                 beanDefinitionRegistry.put(beanName, bd);
 
@@ -123,12 +130,21 @@ public class MoominContainer {
             // BeanDefinition 조회 및 클래스 로딩
             BeanDefinition bd = beanDefinitionRegistry.get(beanName);
             Class<?> clazz = bd.getBeanClass();
+            
+            // 생성자 갯수가 2개 이상인 경우 예외 처리
+            validateSingleConstruct(clazz);
 
-            // 생성자 선택
+            // 생성자 가져오기
             Constructor<?> constructor = clazz.getDeclaredConstructors()[0];
 
+            // 생성자 예외 상황 검증
+            // public 생성자가 아닌 경우
+            validatePublicConstruct(constructor);
+
+            // 필드와 생성자 파라미터가 같지 않은 경우
+            Class<?>[] paramType = getParamType(clazz, constructor);
+
             // 의존성 분석 밎 주입
-            Class<?>[] paramType = constructor.getParameterTypes();
             Object[] args = new Object[paramType.length];
 
             // 재귀 호출
@@ -155,6 +171,44 @@ public class MoominContainer {
         }
     }
 
+    private Class<?>[] getParamType(Class<?> clazz, Constructor<?> constructor) {
+        Set<String> candidates = new HashSet<>();
+        for(Field field : clazz.getDeclaredFields()){
+            if(Modifier.isPrivate(field.getModifiers()) && Modifier.isFinal(field.getModifiers())){
+                candidates.add(field.getName());
+            }
+        }
+
+        Class<?>[] paramType = constructor.getParameterTypes();
+        for(Class<?> param : paramType){
+            String paramName = toLowerCamel(param.getSimpleName());
+            if(!candidates.contains(paramName)){
+                throw new RuntimeException("생성자 규칙을 위반했습니다 : 필드 & 파라미터 불일치");
+            }
+            candidates.remove(paramName);
+        }
+
+        if(!candidates.isEmpty()){
+            throw new RuntimeException("생성자 규칙을 위반했습니다 : 필드 & 파라미터 불일치");
+        }
+
+        return paramType;
+    }
+
+    private void validatePublicConstruct(Constructor<?> constructor) {
+        int modifiers = constructor.getModifiers();
+        if(Modifier.isPrivate(modifiers)){
+            throw new RuntimeException("생성자 규칙을 위반했습니다 : private 생성자");
+        }
+    }
+
+    private void validateSingleConstruct(Class<?> clazz) {
+        int count = clazz.getDeclaredConstructors().length;
+        if(count > 1){
+            throw new RuntimeException("생성자가 2개 이상 발견되었습니다.");
+        }
+    }
+
     // 빈 호출 메서드
     private Object getBean(String beanName) {
         try{
@@ -164,7 +218,11 @@ public class MoominContainer {
             }
 
             // 싱글톤 캐시에 빈이 없다면
+            // BeanDefinition에는 정보가 있는지 확인
             BeanDefinition bd = beanDefinitionRegistry.get(beanName);
+            if(bd == null) {
+                throw new RuntimeException("등록된 빈 정보가 없습니다.");
+            }
             Object bean = createBean(beanName);
 
             return bean;
