@@ -76,7 +76,7 @@ public class MoominContainer {
                     componentClasses.put(className, clazz);
 
                 } catch (Exception e) {
-                    throw new RuntimeException(e);
+                    throw new RuntimeException("디렉토리 스캔 중 오류가 발생했습니다.", e);
                 }
             }
         }
@@ -163,7 +163,7 @@ public class MoominContainer {
             return bean;
 
         } catch (Exception e) {
-            throw new RuntimeException("빈 생성 중 오류가 발생했습니다. " + e);
+            throw new RuntimeException("빈 생성 중 오류가 발생했습니다. ", e);
 
         } finally {
             // 생성 대기열 제거
@@ -227,7 +227,7 @@ public class MoominContainer {
 
             return bean;
         } catch (Exception e){
-            throw new RuntimeException("빈 조회가 실패했습니다. " + e);
+            throw new RuntimeException("빈 조회가 실패했습니다. ", e);
         }
     }
 
